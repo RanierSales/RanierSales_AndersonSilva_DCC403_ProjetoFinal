@@ -1,37 +1,59 @@
-# Ferramentas
-NASM    := nasm
-GCC     := gcc
-LD      := ld
-OBJCOPY := objcopy
+# Diretórios
+SRC_DIR := kernel
+BOOT_DIR := bootloader
+BUILD_DIR := build
+DISK_DIR := disk
 
-# Alvo principal
-all: disk/disk.img
+# Arquivos de origem
+MBR_ASM := $(BOOT_DIR)/mbr.asm
+KERNEL1_ASM := $(SRC_DIR)/kernel1.asm
+KERNEL2_ASM := $(SRC_DIR)/kernel2.asm
+KERNEL3_ASM := $(SRC_DIR)/kernel3.asm
 
-# 1. Compila o MBR (512 bytes)
-bootloader/mbr.bin: bootloader/mbr.asm bootloader/common.asm
-	$(NASM) -f bin bootloader/mbr.asm -o bootloader/mbr.bin
+# Arquivos de saída
+MBR_BIN := $(BUILD_DIR)/mbr.bin
+KERNEL1_BIN := $(BUILD_DIR)/kernel1.bin
+KERNEL2_BIN := $(BUILD_DIR)/kernel2.bin
+KERNEL3_BIN := $(BUILD_DIR)/kernel3.bin
+DISK_IMG := $(DISK_DIR)/disk.img
 
-# 2. Compila o Stage2
-bootloader/stage2.bin: bootloader/stage2.asm bootloader/common.asm
-	$(NASM) -f bin bootloader/stage2.asm -o bootloader/stage2.bin
+# Criação dos diretórios de build, se não existirem
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+$(DISK_DIR):
+	mkdir -p $(DISK_DIR)
 
-# 3. Compila o kernel em formato ELF e depois binário
-kernel/kernel.o: kernel/kernel.c
-	$(GCC) -ffreestanding -m32 -c kernel/kernel.c -o kernel/kernel.o
+# Comando padrão
+default: $(DISK_IMG)
 
-kernel/kernel.elf: kernel/kernel.o kernel/linker.ld
-	$(LD) -m elf_i386 -T kernel/linker.ld -o kernel/kernel.elf kernel/kernel.o
+# Criação da imagem de disco
+$(DISK_IMG): $(MBR_BIN) $(KERNEL1_BIN) $(KERNEL2_BIN) $(KERNEL3_BIN) | $(DISK_DIR)
+	@echo "Criando imagem de disco..."
+	dd if=/dev/zero of=$(DISK_IMG) bs=512 count=2880
+	dd if=$(MBR_BIN) of=$(DISK_IMG) bs=512 seek=0 conv=notrunc
+	dd if=$(KERNEL1_BIN) of=$(DISK_IMG) bs=512 seek=2 conv=notrunc
+	dd if=$(KERNEL2_BIN) of=$(DISK_IMG) bs=512 seek=3 conv=notrunc
+	dd if=$(KERNEL3_BIN) of=$(DISK_IMG) bs=512 seek=4 conv=notrunc
 
-kernel/kernel.bin: kernel/kernel.elf
-	$(OBJCOPY) -O binary kernel/kernel.elf kernel/kernel.bin
+# Compilação do MBR
+$(MBR_BIN): $(MBR_ASM) | $(BUILD_DIR)
+	@echo "Compilando MBR..."
+	nasm -f bin -o $@ $<
 
-# 4. Cria e instala a imagem de disco
-disk/disk.img: bootloader/mbr.bin bootloader/stage2.bin kernel/kernel.bin
-	cd disk && ./mkfs.sh
-	cd disk && ./install.sh
+# Compilação do Kernel em Assembly
+$(KERNEL1_BIN): $(KERNEL1_ASM) | $(BUILD_DIR)
+	@echo "Compilando Kernel 1..."
+	nasm -f bin -o $@ $<
 
-# 5. Limpa tudo
+$(KERNEL2_BIN): $(KERNEL2_ASM) | $(BUILD_DIR)
+	@echo "Compilando Kernel 2..."
+	nasm -f bin -o $@ $<
+
+$(KERNEL3_BIN): $(KERNEL3_ASM) | $(BUILD_DIR)
+	@echo "Compilando Kernel 3..."
+	nasm -f bin -o $@ $<
+
+# Limpeza
 clean:
-	rm -f bootloader/*.bin kernel/*.o kernel/*.elf kernel/*.bin disk/disk.img
-
-.PHONY: all clean
+	@echo "Limpando arquivos..."
+	rm -f $(BUILD_DIR)/*.bin $(DISK_IMG)
