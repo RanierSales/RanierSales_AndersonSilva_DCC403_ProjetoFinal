@@ -23,8 +23,6 @@ Projeto desenvolvido como parte da disciplina **DCC403 - Sistemas Operacionais I
 - **Ferramentas**:
   - [QEMU](https://www.qemu.org/)
   - [NASM](https://www.nasm.us/)
-  - GCC
-  - `dd`, `mkfs.fat`, `mount`, `losetup`, `objcopy`
 - **Linguagens**:
   - Assembly (NASM)
 - **Conceitos relevantes**:
